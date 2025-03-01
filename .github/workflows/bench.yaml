@@ -8,6 +8,8 @@ name: Benchmark
 jobs:
   storageBenchmark:
     name: Storage Benchmarks
+    permissions: 
+      pull-requests: write
     runs-on: ubuntu-latest
     services:
       redis:
