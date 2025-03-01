@@ -12,7 +12,7 @@ use criterion::*;
 use paste::paste;
 use std::time::{Duration, Instant};
 use tokio::runtime::Runtime;
-macro_rules! define_bench {
+macro_rules! define_storage_bench {
     ($name:expr, $task_count:expr, $setup:expr ) => {
         paste! {
         fn [<$name>](c: &mut Criterion) {
@@ -52,7 +52,7 @@ macro_rules! define_bench {
     };
 }
 
-define_bench!("sqlite_in_memory", 10000, {
+define_storage_bench!("sqlite_in_memory", 10000, {
     let pool = SqlitePool::connect("sqlite::memory:").await.unwrap();
     let _ = SqliteStorage::setup(&pool).await;
     SqliteStorage::new_with_config(
@@ -63,7 +63,7 @@ define_bench!("sqlite_in_memory", 10000, {
     )
 });
 
-define_bench!("redis", 10000, {
+define_storage_bench!("redis", 10000, {
     let conn = apalis_redis::connect(env!("REDIS_URL")).await.unwrap();
     let redis = RedisStorage::new_with_config(
         conn,
@@ -74,7 +74,7 @@ define_bench!("redis", 10000, {
     redis
 });
 
-define_bench!("postgres", 10000, {
+define_storage_bench!("postgres", 10000, {
     let pool = PgPool::connect(env!("POSTGRES_URL")).await.unwrap();
     let _ = PostgresStorage::setup(&pool).await.unwrap();
     PostgresStorage::new_with_config(
@@ -85,7 +85,7 @@ define_bench!("postgres", 10000, {
     )
 });
 
-define_bench!("mysql", 10000, {
+define_storage_bench!("mysql", 10000, {
     let pool = MySqlPool::connect(env!("MYSQL_URL")).await.unwrap();
     let _ = MysqlStorage::setup(&pool).await.unwrap();
     MysqlStorage::new_with_config(
