@@ -1,0 +1,22 @@
+[package]
+name = "apalis-benches"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+serde = { version = "1" }
+apalis-core = { version = "0.6" }
+futures = "0.3"
+
+[dev-dependencies]
+apalis-redis = { version = "0.6" }
+criterion = { version = "0.5", features = ["async_tokio", "html_reports"] }
+pprof = { version = "0.13", features = ["flamegraph"] }
+paste = "1.0.14"
+serde = "1"
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+apalis-sql = { version = "0.6", features = ["sqlite", "postgres", "mysql"] }
+
+[[bench]]
+name = "storages"
+harness = false
