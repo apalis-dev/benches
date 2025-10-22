@@ -1,40 +1,27 @@
 on:
   pull_request:
     paths:
-    - 'benches/*'
-    - 'src/*'
-    - '.github/workflows/bench.yaml'
+      - "benches/sqlite.rs"
+      - "src/*"
+      - ".github/workflows/sqlite.yaml"
 name: Benchmark
 jobs:
-  storageBenchmark:
-    name: Storage Benchmarks
-    permissions: 
+  prepare-sqlite:
+    runs-on: ubuntu-latest
+    name: SQLite v3.47.2 sample
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup SQLite v3.47.2
+        uses: actions/setup-sqlite@v1
+        with:
+          sqlite-version: 3.47.2
+          sqlite-year: 2024
+      - run: sqlite3 test.db "create table foo (a int, b text)"
+  benchmark:
+    name: Core Benchmarks
+    permissions:
       pull-requests: write
     runs-on: ubuntu-latest
-    services:
-      redis:
-        image: redis
-        ports:
-          - 6379:6379
-      postgres:
-        image: postgres:16
-        env:
-          POSTGRES_PASSWORD: postgres
-        ports:
-          - 5432:5432
-      mysql:
-        image: mysql:8
-        env:
-          MYSQL_DATABASE: test
-          MYSQL_USER: test
-          MYSQL_PASSWORD: test
-          MYSQL_ROOT_PASSWORD: root
-        ports:
-          - 3306:3306
-    env:
-      POSTGRES_URL: postgres://postgres:postgres@localhost/postgres
-      MYSQL_URL: mysql://test:test@localhost/test
-      REDIS_URL: redis://127.0.0.1/
     steps:
       - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4
       - uses: boa-dev/criterion-compare-action@v3

@@ -2,24 +2,32 @@
 name = "apalis-benches"
 version = "0.1.0"
 edition = "2021"
+authors = ["Njuguna Mureithi <mureithinjuguna@gmail.com>"]
+description = "Benchmark suite for apalis backends using Criterion and pprof."
+readme = "README.md"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/apalis-dev/apalis-benches"
+homepage = "https://github.com/apalis-dev/apalis-benches"
+documentation = "https://docs.rs/apalis-benches"
+keywords = ["apalis", "benchmarks", "criterion", "tokio", "profiling"]
+categories = ["benchmarking", "asynchronous", "performance"]
 
 [lib]
 bench = false
 
 [dependencies]
-serde = { version = "1" }
-apalis-core = { version = "0.6" }
+serde = { version = "1", features = ["derive"] }
+apalis-core = { version = "1.0.0-alpha.6" }
 futures = "0.3"
+tower = "0.4"
+paste = "1.0.14"
 
 [dev-dependencies]
-apalis-redis = { version = "0.6" }
 criterion = { version = "0.5", features = ["async_tokio", "html_reports"] }
 pprof = { version = "0.13", features = ["flamegraph"] }
-paste = "1.0.14"
-serde = "1"
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
-apalis-sql = { version = "0.6", features = ["sqlite", "postgres", "mysql", "tokio-comp"] }
+apalis-sqlite = { version = "1.0.0-alpha.2", features = ["tokio-comp"] }
 
 [[bench]]
-name = "storages"
+name = "sqlite"
 harness = false

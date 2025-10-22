@@ -1,11 +1,11 @@
 use apalis_core::backend::Backend;
-use apalis_core::builder::WorkerBuilder;
-use apalis_core::builder::WorkerFactory;
-use apalis_core::layers::Layer;
+use apalis_core::error::BoxDynError;
 use apalis_core::layers::Service;
-use apalis_core::notify::Notify;
-use apalis_core::request::Request;
-use futures::future;
+use apalis_core::task::Task;
+use apalis_core::worker::builder::WorkerBuilder;
+use apalis_core::worker::context::WorkerContext;
+use apalis_core::worker::ReadinessService;
+use apalis_core::worker::TrackerService;
 use futures::FutureExt;
 use serde::{Deserialize, Serialize};
 use std::pin::Pin;
@@ -14,46 +14,58 @@ use std::sync::atomic::Ordering;
 use std::sync::Arc;
 use std::task::Context;
 use std::task::Poll;
+use tower::Layer;
 
-#[derive(Serialize, Deserialize, Debug)]
+mod macros;
+
+/// A simple job struct for benchmarking purposes.
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct TestJob;
 
+/// An empty job function that does nothing.
 pub async fn empty_job(_: TestJob) {}
 
+/// Benchmarks a worker processing tasks from the given backend.
 pub async fn bench_worker<B, Ctx, Svc>(name: &str, backend: B, service: Svc, task_count: usize)
 where
     B::Stream: Send + Unpin + 'static,
-    B: Backend<Request<TestJob, Ctx>, ()> + 'static,
+    B: Backend<Context = Ctx, Args = TestJob> + 'static + Send,
     Ctx: Send + Sync + 'static,
-    Svc: Send + Sync + Service<Request<TestJob, Ctx>, Response = ()> + 'static,
+    Svc: Send + Sync + Service<Task<TestJob, Ctx, B::IdType>> + 'static + Clone,
     Svc::Future: Send,
-    Svc::Error: Send + Sync + std::error::Error + 'static,
-    B::Layer: Layer<BenchService<Svc>>,
-    <B::Layer as Layer<BenchService<Svc>>>::Service:
-        Service<Request<TestJob, Ctx>, Response = ()> + Send,
-    <<B::Layer as Layer<BenchService<Svc>>>::Service as Service<Request<TestJob, Ctx>>>::Future:
+    Svc::Error: Into<BoxDynError>+ Send+ Sync + 'static,
+    B::Layer: Layer<BenchService<ReadinessService<TrackerService<Svc>>>>,
+    <B::Layer as Layer<BenchService<ReadinessService<TrackerService<Svc>>>>>::Service:
+        Service<Task<TestJob, Ctx, B::IdType>, Response = ()> + Send,
+    <<B::Layer as Layer<BenchService<ReadinessService<TrackerService<Svc>>>>>::Service as Service<Task<TestJob, Ctx, B::IdType>>>::Future:
         Send,
-    <<B::Layer as Layer<BenchService<Svc>>>::Service as Service<Request<TestJob, Ctx>>>::Error:
-        Send + Sync + std::error::Error + 'static,
+    <<B::Layer as Layer<BenchService<ReadinessService<TrackerService<Svc>>>>>::Service as Service<Task<TestJob, Ctx, B::IdType>>>::Error:
+        Into<BoxDynError>+ Send+ Sync + 'static,
+        B::Args: Send + 'static,
+        B::IdType: Send + 'static,
+        B::Error: Into<BoxDynError> + Send + Sync + 'static,
+        B::Beat: Unpin + Send + 'static,
+
 {
-    let notify = Notify::new();
-    let worker = WorkerBuilder::new(format!("{}-bench", name))
-        .layer(BenchLayer {
-            counter: Arc::default(),
-            sender: notify.clone(),
-            task_count,
-        })
+    let mut ctx = WorkerContext::new::<Svc>(&format!("{}-bench", name));
+    WorkerBuilder::new(format!("{}-bench", name))
         .backend(backend)
+        .layer(BenchLayer {
+            counter: Arc::new(AtomicUsize::new(0)),
+            task_count,
+            worker: ctx.clone(),
+        })
         .build(service)
-        .run();
-    let wait_for_completion = notify.notified().boxed();
-    future::select(worker, wait_for_completion).await;
+        .run_with_ctx(&mut ctx)
+        .await
+        .unwrap();
 }
 
+/// A Tower layer that wraps services to count processed tasks and stop the worker when done.
 pub struct BenchLayer {
     counter: Arc<AtomicUsize>,
-    sender: Notify<()>,
     task_count: usize,
+    worker: WorkerContext,
 }
 
 impl<S> Layer<S> for BenchLayer {
@@ -62,17 +74,19 @@ impl<S> Layer<S> for BenchLayer {
     fn layer(&self, service: S) -> Self::Service {
         BenchService {
             counter: self.counter.clone(),
-            sender: self.sender.clone(),
             max_tasks: self.task_count.clone(),
             service,
+            worker: self.worker.clone(),
         }
     }
 }
+
+/// A Tower service that counts processed tasks and stops the worker when the maximum is reached.
 pub struct BenchService<S> {
     counter: Arc<AtomicUsize>,
-    sender: Notify<()>,
     max_tasks: usize,
     service: S,
+    worker: WorkerContext,
 }
 
 impl<S, Request> Service<Request> for BenchService<S>
@@ -91,14 +105,14 @@ where
 
     fn call(&mut self, request: Request) -> Self::Future {
         let counter = self.counter.clone();
-        let sender = self.sender.clone();
+        let worker = self.worker.clone();
         let max_tasks = self.max_tasks;
         self.service
             .call(request)
             .map(move |res| {
-                let val = counter.fetch_add(1, Ordering::Relaxed);
+                let val = counter.fetch_add(1, Ordering::Acquire);
                 if max_tasks - 1 == val {
-                    sender.notify(()).unwrap();
+                    worker.stop().unwrap();
                 }
                 res
             })
