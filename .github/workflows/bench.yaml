@@ -12,8 +12,6 @@ jobs:
     steps:
         
       - uses: actions/checkout@v4
-      - name: Setup SQLite v3.47.2
-        uses: ccorsi/setup-sqlite@v1.2.1
       - run: sqlite3 test.db "create table foo (a int, b text)"
   benchmark:
     name: Core Benchmarks
