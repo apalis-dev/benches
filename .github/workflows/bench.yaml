@@ -12,7 +12,7 @@ jobs:
     steps:
         
       - uses: actions/checkout@v4
-      - run: sqlite3 test.db "create table foo (a int, b text)"
+      - run: sqlite3 /home/runner/work/benches/benches/test.db "create table foo (a int, b text)"
   benchmark:
     name: Core Benchmarks
     needs: prepare-sqlite
