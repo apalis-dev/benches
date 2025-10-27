@@ -72,6 +72,7 @@ version = "0.1.0"
 dependencies = [
  "apalis-core",
  "apalis-postgres",
+ "apalis-sql",
  "criterion",
  "futures",
  "paste",

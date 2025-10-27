@@ -26,9 +26,17 @@ paste = "1.0.14"
 criterion = { version = "0.5", features = ["async_tokio", "html_reports"] }
 pprof = { version = "0.13", features = ["flamegraph"] }
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
-# apalis-sqlite = { version = "1.0.0-alpha.3", features = ["tokio-comp", "migrate"] }
-apalis-postgres = { version = "1.0.0-alpha.1", features = ["tokio-comp", "migrate"] }
-sqlx = { version = "0.8", features = ["runtime-tokio-rustls", "postgres", "macros", "migrate"] }
+apalis-sql = { version = "1.0.0-alpha.4" }
+apalis-postgres = { version = "1.0.0-alpha.1", features = [
+    "tokio-comp",
+    "migrate",
+] }
+sqlx = { version = "0.8", features = [
+    "runtime-tokio-rustls",
+    "postgres",
+    "macros",
+    "migrate",
+] }
 
 # [[bench]]
 # name = "sqlite"
