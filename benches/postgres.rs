@@ -3,7 +3,7 @@ use apalis_benches::{bench_worker, TestJob};
 use apalis_core::backend::TaskSink;
 use apalis_core::task_fn::task_fn;
 use apalis_postgres::PostgresStorage;
-use apalis_sqlite::Config;
+use apalis_sql::config::Config;
 use criterion::Criterion;
 use criterion::{criterion_group, criterion_main, BenchmarkId};
 use sqlx::PgPool;
