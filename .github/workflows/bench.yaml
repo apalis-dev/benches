@@ -22,15 +22,17 @@ jobs:
     env:
       DATABASE_URL: postgres://postgres:postgres@localhost/postgres
     steps:
-      - run: cargo install sqlx-cli
+      - uses: actions/checkout@v4 # v4
+      - uses: cargo-bins/cargo-binstall@main
+      - run: cargo binstall sqlx-cli
       - run: git clone https://github.com/apalis-dev/apalis-postgres.git 
       - run: sqlx migrate run --source ./apalis-postgres/migrations --database-url $DATABASE_URL
-      - uses: actions/checkout@v4 # v4
-      - run: sqlite3 /tmp/test.db "create table foo (a int, b text)"
+      # - run: sqlite3 /tmp/test.db "create table foo (a int, b text)"
 
-      - run: git clone https://github.com/apalis-dev/apalis-sqlite.git
-      - run: sqlx migrate run --source ./apalis-sqlite/migrations --database-url sqlite:/tmp/test.db
+      # - run: git clone https://github.com/apalis-dev/apalis-sqlite.git
+      # - run: sqlx migrate run --source ./apalis-sqlite/migrations --database-url sqlite:/tmp/test.db
 
       - uses: boa-dev/criterion-compare-action@v3
         with:
           branchName: ${{ github.base_ref }}
+          benchName: "postgres"
