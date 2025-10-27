@@ -22,6 +22,9 @@ jobs:
     env:
       DATABASE_URL: postgres://postgres:postgres@localhost/postgres
     steps:
+      - run: cargo install sqlx-cli
+      - run: git clone https://github.com/apalis-dev/apalis-postgres.git 
+      - run: sqlx migrate run --source ./apalis-postgres/migrations --database-url $DATABASE_URL
       - uses: actions/checkout@v4 # v4
       - run: sqlite3 /tmp/test.db "create table foo (a int, b text)"
       - uses: boa-dev/criterion-compare-action@v3
