@@ -21,5 +21,11 @@ define_backend_bench!("sqlite_in_memory", 10000, {
     SqliteStorage::new_with_config(&pool, &apalis_sqlite::Config::default())
 });
 
-criterion_group!(benches, sqlite_in_file, sqlite_in_memory);
+define_backend_bench!("sqlite_in_memory_with_callback", 10000, {
+    let pool = SqlitePool::connect("sqlite::memory:").await.unwrap();
+    let _ = SqliteStorage::setup(&pool).await;
+    SqliteStorage::new_with_callback(&pool, &apalis_sqlite::Config::default())
+});
+
+criterion_group!(benches, sqlite_in_file, sqlite_in_memory, sqlite_in_memory_with_callback);
 criterion_main!(benches);
