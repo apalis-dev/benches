@@ -29,8 +29,8 @@ jobs:
       - run: sqlite3 /tmp/test.db "create table foo (a int, b text)"
 
       - run: git clone https://github.com/apalis-dev/apalis-sqlite.git
-      - run: sqlx migrate run --source ./apalis-sqlite/migrations --database-url /tmp/test.db
-      
+      - run: sqlx migrate run --source ./apalis-sqlite/migrations --database-url sqlite:/tmp/test.db
+
       - uses: boa-dev/criterion-compare-action@v3
         with:
           branchName: ${{ github.base_ref }}
