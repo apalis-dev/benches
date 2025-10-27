@@ -16,11 +16,11 @@ define_backend_bench!("postgres_basic", 10000, {
     PostgresStorage::new_with_config(&pool, &Config::new("benches_basic"))
 });
 
-define_backend_bench!("postgres_with_notify", 10000, {
-    let pool = PgPool::connect(env!("DATABASE_URL")).await.unwrap();
-    let _ = PostgresStorage::setup(&pool).await;
-    PostgresStorage::new_with_notify(&pool, &Config::new("benches_with_notify"))
-});
+// define_backend_bench!("postgres_with_notify", 10000, {
+//     let pool = PgPool::connect(env!("DATABASE_URL")).await.unwrap();
+//     let _ = PostgresStorage::setup(&pool).await;
+//     PostgresStorage::new_with_notify(&pool, &Config::new("benches_with_notify")).await
+// });
 
-criterion_group!(benches, postgres_basic, postgres_with_notify);
+criterion_group!(benches, postgres_basic);
 criterion_main!(benches);
