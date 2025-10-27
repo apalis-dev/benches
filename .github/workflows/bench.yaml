@@ -1,17 +1,26 @@
 on:
   pull_request:
     paths:
-      - "benches/sqlite.rs"
+      - "benches/*"
       - "src/*"
       - ".github/workflows/bench.yaml"
 name: Benchmark
 jobs:
   benchmark:
     name: Core Benchmarks
-    
+
     permissions:
       pull-requests: write
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+    env:
+      DATABASE_URL: postgres://postgres:postgres@localhost/postgres
     steps:
       - uses: actions/checkout@v4 # v4
       - run: sqlite3 /tmp/test.db "create table foo (a int, b text)"

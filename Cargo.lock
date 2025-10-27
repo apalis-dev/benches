@@ -71,21 +71,23 @@ name = "apalis-benches"
 version = "0.1.0"
 dependencies = [
  "apalis-core",
+ "apalis-postgres",
  "apalis-sqlite",
  "criterion",
  "futures",
  "paste",
  "pprof",
  "serde",
+ "sqlx",
  "tokio",
- "tower 0.4.13",
+ "tower",
 ]
 
 [[package]]
 name = "apalis-core"
-version = "1.0.0-alpha.6"
+version = "1.0.0-alpha.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "06a04a3460ebb5b6773f03f05b1770e6ca926859d8d76cdf3c4ac7ea824b9fb9"
+checksum = "4c89aa1201b676ea5b481685cf8af2034b96aac6c01dbc64bd6d36237b220d39"
 dependencies = [
  "futures-channel",
  "futures-core",
@@ -98,17 +100,48 @@ dependencies = [
  "thiserror 2.0.11",
  "tower-layer",
  "tower-service",
- "tracing",
+]
+
+[[package]]
+name = "apalis-postgres"
+version = "1.0.0-alpha.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6b3fb17b7ed405a21fd5c7964675b10fe0985e8f70d16b7f36de6bb46bcb78df"
+dependencies = [
+ "apalis-core",
+ "apalis-sql",
+ "chrono",
+ "futures",
+ "pin-project",
+ "serde",
+ "serde_json",
+ "sqlx",
+ "thiserror 2.0.11",
+ "tokio",
+ "ulid",
+]
+
+[[package]]
+name = "apalis-sql"
+version = "1.0.0-alpha.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bdc2cfd73562f8e47d77073985ed05a06cf0c74b246e687896d0dcdfa6a48c81"
+dependencies = [
+ "apalis-core",
+ "chrono",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.11",
 ]
 
 [[package]]
 name = "apalis-sqlite"
-version = "1.0.0-alpha.2"
+version = "1.0.0-alpha.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ff9edb056c68a126a965a581c7e5d567b0b6622c460cadc3a08316b0e9deffe7"
+checksum = "0ad7683c0db5150879ad7993f17a28311d729d35736826755f182cf4881ec5c0"
 dependencies = [
  "apalis-core",
- "apalis-workflow",
+ "apalis-sql",
  "bytes",
  "chrono",
  "futures",
@@ -120,23 +153,6 @@ dependencies = [
  "sqlx",
  "thiserror 2.0.11",
  "tokio",
- "tower-layer",
- "tower-service",
- "ulid",
-]
-
-[[package]]
-name = "apalis-workflow"
-version = "0.1.0-alpha.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bf42001ba0ba01f9912008c495a4367df24aa513230685975ce54375a7a58c8a"
-dependencies = [
- "apalis-core",
- "futures",
- "serde",
- "thiserror 2.0.11",
- "tower 0.5.2",
- "tracing",
  "ulid",
 ]
 
@@ -2055,12 +2071,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "sync_wrapper"
-version = "1.0.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0bf256ce5efdfa370213c1dabab5935a12e49f2c58d15e9eac2870d3b4f27263"
-
-[[package]]
 name = "synstructure"
 version = "0.13.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2207,20 +2217,6 @@ dependencies = [
  "tower-layer",
  "tower-service",
  "tracing",
-]
-
-[[package]]
-name = "tower"
-version = "0.5.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d039ad9159c98b70ecfd540b2573b97f7f52c3e8d9f8ad57a24b916a536975f9"
-dependencies = [
- "futures-core",
- "futures-util",
- "pin-project-lite",
- "sync_wrapper",
- "tower-layer",
- "tower-service",
 ]
 
 [[package]]
