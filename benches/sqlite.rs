@@ -29,5 +29,10 @@ define_backend_bench!("sqlite_in_memory_with_callback", 10000, {
     backend
 });
 
-criterion_group!(benches, sqlite_in_file, sqlite_in_memory, sqlite_in_memory_with_callback);
+criterion_group!(
+    benches,
+    sqlite_in_file,
+    sqlite_in_memory,
+    sqlite_in_memory_with_callback
+);
 criterion_main!(benches);

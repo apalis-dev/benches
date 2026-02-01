@@ -1,5 +1,5 @@
-use apalis_core::backend::TaskSink;
 use apalis_core::backend::shared::MakeShared;
+use apalis_core::backend::TaskSink;
 use apalis_core::error::BoxDynError;
 use apalis_core::worker::builder::WorkerBuilder;
 use apalis_sqlite::{Config, SharedSqliteStorage, SqliteStorage};
@@ -221,12 +221,7 @@ async fn run_shared_storage_benchmark(
     monitor_handle.abort();
     tokio::time::sleep(Duration::from_millis(200)).await;
 
-    Ok(metrics.generate_result(
-        "Shared (Polling)",
-        job_count,
-        worker_count,
-        job_duration_ms,
-    ))
+    Ok(metrics.generate_result("Shared (Polling)", job_count, worker_count, job_duration_ms))
 }
 
 async fn run_hooked_storage_benchmark(
