@@ -1,8 +1,7 @@
 use apalis_core::backend::TaskSink;
+use apalis_core::backend::shared::MakeShared;
 use apalis_core::error::BoxDynError;
-use apalis_core::task_fn::task_fn;
 use apalis_core::worker::builder::WorkerBuilder;
-use apalis_core::worker::context::WorkerContext;
 use apalis_sqlite::{Config, SharedSqliteStorage, SqliteStorage};
 use futures::stream;
 use hdrhistogram::Histogram;
@@ -185,14 +184,13 @@ async fn run_shared_storage_benchmark(
             let worker_metrics = metrics.clone();
             let worker_storage = storage.clone();
             tokio::spawn(async move {
-                let service = task_fn(move |job: BenchmarkJob, _ctx: WorkerContext| {
+                let service = move |job: BenchmarkJob| {
                     let metrics = worker_metrics.clone();
                     async move {
                         tokio::time::sleep(Duration::from_millis(job.sleep_ms)).await;
                         metrics.record(metrics.start_time.elapsed().as_millis() as u64);
-                        Ok(())
                     }
-                });
+                };
 
                 WorkerBuilder::new(format!("shared-worker-{worker_index}"))
                     .backend(worker_storage)
@@ -262,14 +260,13 @@ async fn run_hooked_storage_benchmark(
             let worker_metrics = metrics.clone();
             let worker_backend = backend.clone();
             tokio::spawn(async move {
-                let service = task_fn(move |job: BenchmarkJob, _ctx: WorkerContext| {
+                let service = move |job: BenchmarkJob| {
                     let metrics = worker_metrics.clone();
                     async move {
                         tokio::time::sleep(Duration::from_millis(job.sleep_ms)).await;
                         metrics.record(metrics.start_time.elapsed().as_millis() as u64);
-                        Ok(())
                     }
-                });
+                };
 
                 WorkerBuilder::new(format!("hooked-worker-{worker_index}"))
                     .backend(worker_backend)

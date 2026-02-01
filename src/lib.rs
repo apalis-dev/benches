@@ -28,24 +28,24 @@ pub async fn empty_job(_: TestJob) {}
 /// Benchmarks a worker processing tasks from the given backend.
 pub async fn bench_worker<B, Ctx, Svc>(name: &str, backend: B, service: Svc, task_count: usize)
 where
-    B::Stream: Send + Unpin + 'static,
     B: Backend<Context = Ctx, Args = TestJob> + 'static + Send,
+    B::Stream: Send + Unpin + 'static,
+    B::Beat: Unpin + Send + 'static,
+    B::Layer: Layer<ReadinessService<TrackerService<Svc>>>,
+    B::Error: Into<BoxDynError> + Send + Sync + 'static,
+    B::IdType: Send + 'static,
     Ctx: Send + Sync + 'static,
     Svc: Send + Sync + Service<Task<TestJob, Ctx, B::IdType>> + 'static + Clone,
     Svc::Future: Send,
-    Svc::Error: Into<BoxDynError>+ Send+ Sync + 'static,
-    B::Layer: Layer<BenchService<ReadinessService<TrackerService<Svc>>>>,
-    <B::Layer as Layer<BenchService<ReadinessService<TrackerService<Svc>>>>>::Service:
+    Svc::Error: Into<BoxDynError> + Send + Sync + 'static,
+    BenchLayer: Layer<<B::Layer as Layer<ReadinessService<TrackerService<Svc>>>>::Service>,
+    <BenchLayer as Layer<<B::Layer as Layer<ReadinessService<TrackerService<Svc>>>>::Service>>::Service:
         Service<Task<TestJob, Ctx, B::IdType>, Response = ()> + Send,
-    <<B::Layer as Layer<BenchService<ReadinessService<TrackerService<Svc>>>>>::Service as Service<Task<TestJob, Ctx, B::IdType>>>::Future:
+    <<BenchLayer as Layer<<B::Layer as Layer<ReadinessService<TrackerService<Svc>>>>::Service>>::Service as Service<Task<TestJob, Ctx, B::IdType>>>::Future:
         Send,
-    <<B::Layer as Layer<BenchService<ReadinessService<TrackerService<Svc>>>>>::Service as Service<Task<TestJob, Ctx, B::IdType>>>::Error:
-        Into<BoxDynError>+ Send+ Sync + 'static,
-        B::Args: Send + 'static,
-        B::IdType: Send + 'static,
-        B::Error: Into<BoxDynError> + Send + Sync + 'static,
-        B::Beat: Unpin + Send + 'static,
-
+    <<BenchLayer as Layer<<B::Layer as Layer<ReadinessService<TrackerService<Svc>>>>::Service>>::Service as Service<Task<TestJob, Ctx, B::IdType>>>::Error:
+        Into<BoxDynError> + Send + Sync + 'static,
+    B::Args: Send + 'static,
 {
     let mut ctx = WorkerContext::new::<Svc>(&format!("{}-bench", name));
     WorkerBuilder::new(format!("{}-bench", name))
