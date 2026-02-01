@@ -78,6 +78,11 @@ Adapt the closure to your backend type (Postgres, Redis, etc.), and keep setup d
     cargo bench --bench bench_name
     ```
 
+- Run the apalis-sqlite hooked vs shared comparison:
+    ```bash
+    cargo bench --bench sqlite_hooked_vs_shared
+    ```
+
 - To measure with specific config:
     ```bash
     BACKEND_URL=... cargo bench
