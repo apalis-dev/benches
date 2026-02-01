@@ -4,13 +4,11 @@ use apalis_core::error::BoxDynError;
 use apalis_core::worker::builder::WorkerBuilder;
 use apalis_sqlite::{Config, SharedSqliteStorage, SqliteStorage};
 use futures::stream;
-use hdrhistogram::Histogram;
 use serde::{Deserialize, Serialize};
 use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use sysinfo::{Pid, System};
-use tabled::{Table, Tabled};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct BenchmarkJob {
@@ -18,30 +16,21 @@ struct BenchmarkJob {
     sleep_ms: u64,
 }
 
-#[derive(Debug, Clone, Tabled)]
+#[derive(Debug, Clone)]
 struct BenchmarkResult {
-    #[tabled(rename = "Method")]
     method: String,
-    #[tabled(rename = "Jobs")]
     job_count: usize,
-    #[tabled(rename = "Workers")]
     worker_count: usize,
-    #[tabled(rename = "Job Duration")]
     job_duration_ms: String,
-    #[tabled(rename = "Mean (ms)")]
     mean_latency: String,
-    #[tabled(rename = "P95 (ms)")]
     p95_latency: String,
-    #[tabled(rename = "Throughput (jobs/s)")]
     throughput: String,
-    #[tabled(rename = "Peak Mem (MB)")]
     peak_memory_mb: String,
-    #[tabled(rename = "Avg Mem (MB)")]
     avg_memory_mb: String,
 }
 
 struct BenchmarkMetrics {
-    latencies: Mutex<Histogram<u64>>,
+    latencies: Mutex<Vec<u64>>,
     start_time: Instant,
     peak_memory: AtomicU64,
     completed_jobs: AtomicUsize,
@@ -50,7 +39,7 @@ struct BenchmarkMetrics {
 
 impl BenchmarkMetrics {
     fn new() -> Self {
-        let latencies = Mutex::new(Histogram::<u64>::new(5).unwrap());
+        let latencies = Mutex::new(Vec::new());
         let start_time = Instant::now();
         let peak_memory = AtomicU64::new(0);
         let completed_jobs = AtomicUsize::new(0);
@@ -66,7 +55,7 @@ impl BenchmarkMetrics {
     }
 
     fn record(&self, duration_ms: u64) {
-        let _ = self.latencies.lock().unwrap().record(duration_ms);
+        self.latencies.lock().unwrap().push(duration_ms);
         self.completed_jobs.fetch_add(1, Ordering::Relaxed);
     }
 
@@ -94,10 +83,29 @@ impl BenchmarkMetrics {
         worker_count: usize,
         job_duration_ms: u64,
     ) -> BenchmarkResult {
-        let histogram = self.latencies.lock().unwrap();
+        let mut latencies = self.latencies.lock().unwrap();
         let total_time = self.start_time.elapsed().as_secs_f64();
         let throughput_value = self.completed_jobs.load(Ordering::Relaxed) as f64 / total_time;
 
+        let mean_latency_value = if latencies.is_empty() {
+            0.0
+        } else {
+            latencies.iter().sum::<u64>() as f64 / latencies.len() as f64
+        };
+
+        latencies.sort_unstable();
+        let p95_latency_value = if latencies.is_empty() {
+            0.0
+        } else {
+            let index = ((latencies.len() - 1) as f64 * 0.95).ceil() as usize;
+            latencies[index] as f64
+        };
+
+        let method = method.to_string();
+        let job_duration_ms = format!("{job_duration_ms}ms");
+        let mean_latency = format!("{mean_latency_value:.2}");
+        let p95_latency = format!("{p95_latency_value:.2}");
+        let throughput = format!("{:.2}", throughput_value);
         let peak_memory = self.peak_memory.load(Ordering::Relaxed);
         let memory_samples = self.memory_samples.lock().unwrap();
         let avg_memory = if memory_samples.is_empty() {
@@ -105,12 +113,6 @@ impl BenchmarkMetrics {
         } else {
             memory_samples.iter().sum::<u64>() / memory_samples.len() as u64
         };
-
-        let method = method.to_string();
-        let job_duration_ms = format!("{job_duration_ms}ms");
-        let mean_latency = format!("{:.2}", histogram.mean());
-        let p95_latency = format!("{:.2}", histogram.value_at_quantile(0.95) as f64);
-        let throughput = format!("{:.2}", throughput_value);
         let peak_memory_mb = format!("{:.2}", peak_memory as f64 / 1024.0 / 1024.0);
         let avg_memory_mb = format!("{:.2}", avg_memory as f64 / 1024.0 / 1024.0);
 
@@ -217,7 +219,6 @@ async fn run_shared_storage_benchmark(
         worker.abort();
     }
     monitor_handle.abort();
-
     tokio::time::sleep(Duration::from_millis(200)).await;
 
     Ok(metrics.generate_result(
@@ -293,7 +294,6 @@ async fn run_hooked_storage_benchmark(
         worker.abort();
     }
     monitor_handle.abort();
-
     tokio::time::sleep(Duration::from_millis(200)).await;
 
     Ok(metrics.generate_result(
@@ -309,7 +309,7 @@ async fn main() -> Result<(), BoxDynError> {
     let separator = "=".repeat(100);
 
     println!("{separator}");
-    println!("APALIS-SQLITE MEMORY BENCHMARK: Shared (Polling) vs Hooked (Event-driven)");
+    println!("APALIS-SQLITE BENCHMARK: Shared (Polling) vs Hooked (Event-driven)");
     println!("{separator}");
 
     let mut results = Vec::new();
@@ -339,98 +339,34 @@ async fn main() -> Result<(), BoxDynError> {
     println!("\n{separator}");
     println!("FINAL RESULTS");
     println!("{separator}");
-    println!("\n{}", Table::new(&results));
-
-    println!("\n{separator}");
-    println!("MEMORY USAGE ANALYSIS");
-    println!("{separator}");
-
-    let shared_count = results.iter().filter(|r| r.method.contains("Shared")).count() as f64;
-    let hooked_count = results.iter().filter(|r| r.method.contains("Hooked")).count() as f64;
-
-    let shared_avg_peak = results
-        .iter()
-        .filter(|r| r.method.contains("Shared"))
-        .filter_map(|r| r.peak_memory_mb.parse::<f64>().ok())
-        .sum::<f64>()
-        / shared_count;
-
-    let hooked_avg_peak = results
-        .iter()
-        .filter(|r| r.method.contains("Hooked"))
-        .filter_map(|r| r.peak_memory_mb.parse::<f64>().ok())
-        .sum::<f64>()
-        / hooked_count;
-
-    let shared_avg_mem = results
-        .iter()
-        .filter(|r| r.method.contains("Shared"))
-        .filter_map(|r| r.avg_memory_mb.parse::<f64>().ok())
-        .sum::<f64>()
-        / shared_count;
-
-    let hooked_avg_mem = results
-        .iter()
-        .filter(|r| r.method.contains("Hooked"))
-        .filter_map(|r| r.avg_memory_mb.parse::<f64>().ok())
-        .sum::<f64>()
-        / hooked_count;
-
-    println!("\nPeak Memory Usage:");
-    println!("  Shared (Polling):      {shared_avg_peak:.2} MB");
-    println!("  Hooked (Event-driven): {hooked_avg_peak:.2} MB");
-
-    let peak_diff = ((hooked_avg_peak - shared_avg_peak).abs() / shared_avg_peak) * 100.0;
-    let peak_lower = if hooked_avg_peak < shared_avg_peak {
-        "Hooked"
-    } else {
-        "Shared"
-    };
-
+    println!();
     println!(
-        "  Difference:            {:.2} MB ({:.1}% lower for {})",
-        (hooked_avg_peak - shared_avg_peak).abs(),
-        peak_diff,
-        peak_lower
+        "{:<22} {:>6} {:>7} {:>12} {:>10} {:>9} {:>18} {:>14} {:>13}",
+        "Method",
+        "Jobs",
+        "Workers",
+        "Job Duration",
+        "Mean (ms)",
+        "P95 (ms)",
+        "Throughput (jobs/s)",
+        "Peak Mem (MB)",
+        "Avg Mem (MB)"
     );
-
-    println!("\nAverage Memory Usage:");
-    println!("  Shared (Polling):      {shared_avg_mem:.2} MB");
-    println!("  Hooked (Event-driven): {hooked_avg_mem:.2} MB");
-
-    let avg_diff = ((hooked_avg_mem - shared_avg_mem).abs() / shared_avg_mem) * 100.0;
-    let avg_lower = if hooked_avg_mem < shared_avg_mem {
-        "Hooked"
-    } else {
-        "Shared"
-    };
-
-    println!(
-        "  Difference:            {:.2} MB ({:.1}% lower for {})",
-        (hooked_avg_mem - shared_avg_mem).abs(),
-        avg_diff,
-        avg_lower
-    );
-
-    println!("\nKey Findings:");
-    if hooked_avg_peak > shared_avg_peak * 1.1 {
+    println!("{}", "-".repeat(120));
+    for result in results {
         println!(
-            "  NOTE: Hooked storage uses significantly more memory ({:.0}% higher)",
-            (hooked_avg_peak / shared_avg_peak - 1.0) * 100.0
+            "{:<22} {:>6} {:>7} {:>12} {:>10} {:>9} {:>18} {:>14} {:>13}",
+            result.method,
+            result.job_count,
+            result.worker_count,
+            result.job_duration_ms,
+            result.mean_latency,
+            result.p95_latency,
+            result.throughput,
+            result.peak_memory_mb,
+            result.avg_memory_mb
         );
-    } else if shared_avg_peak > hooked_avg_peak * 1.1 {
-        println!(
-            "  NOTE: Hooked storage uses less memory ({:.0}% lower)",
-            (1.0 - hooked_avg_peak / shared_avg_peak) * 100.0
-        );
-    } else {
-        println!("  NOTE: Both methods have similar memory footprints (< 10% difference)");
     }
-
-    println!("\nMemory Efficiency:");
-    println!("  - Shared storage works with simple :memory: mode");
-    println!("  - Hooked storage requires shared memory mode with update hooks");
-    println!("  - Both scale with job count and worker count");
 
     Ok(())
 }
