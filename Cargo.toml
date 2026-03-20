@@ -17,7 +17,7 @@ bench = false
 
 [dependencies]
 serde = { version = "1", features = ["derive"] }
-apalis-core = { version = "1.0.0-alpha.6" }
+apalis-core = { version = "1.0.0-rc.2" }
 futures = "0.3"
 tower = "0.4"
 paste = "1.0.14"
@@ -25,9 +25,14 @@ paste = "1.0.14"
 [dev-dependencies]
 criterion = { version = "0.5", features = ["async_tokio", "html_reports"] }
 pprof = { version = "0.13", features = ["flamegraph"] }
+sysinfo = "0.33.1"
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
-apalis-sqlite = { version = "1.0.0-alpha.2", features = ["tokio-comp"] }
+apalis-sqlite = { version = "1.0.0-rc.2", features = ["tokio-comp"] }
 
 [[bench]]
 name = "sqlite"
+harness = false
+
+[[bench]]
+name = "sqlite_hooked_vs_shared"
 harness = false
